@@ -6,6 +6,7 @@ import pandas as pd
 import uuid
 import os
 from tqdm import tqdm
+from openpyxl import load_workbook
 import sort_in_excel
 # from decodeFile import getTextFormat
 app = FastAPI()
@@ -42,13 +43,26 @@ async def  analyze_excel_file(file: UploadFile = File(..., pattern=r".*\.xlsx$")
         f.write(await file.read())
     
     try:
-        df = pd.read_excel(temp_file, header=2, names=["Запись разговора"])
+        wb = load_workbook(temp_file)
+        ws = wb.active
+        
+        # Собираем URL из гиперссылок начиная с 4-й строки
+        urls = []
+        
+        for row in ws.iter_rows(min_row=4, min_col=7, max_col=7):
+            cell = row[0]
+            if cell.hyperlink:
+                urls.append(cell.hyperlink.target)  
+    # Обработка аудио
         results = []
-        
-        for url in tqdm(df["Запись разговора"], desc="Обработка"):
-            results.append(await sort_in_excel.process_audio(url))
-        
-        df["status"] = [res["status"] for res in results]
+        for url in tqdm(urls, desc="Обработка"):  #tqdm создает прогресс-бар
+            if url and isinstance(url, str):
+                results.append(sort_in_excel.process_audio(url))
+            else:
+                results.append("недействительная ссылка")
+
+        df = pd.read_excel(temp_file)
+        df["status"] = [res for res in results]
         output_file = f"result_{uuid.uuid4()}.xlsx"
         df.to_excel(output_file, index=False)
         

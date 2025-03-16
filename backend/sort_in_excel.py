@@ -32,12 +32,13 @@ async def process_audio(url):
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         
-        soup = BeautifulSoup(response.content, 'html.parser')
-        audio_links = [
-            urljoin(url, tag['src']) 
-            for tag in soup.find_all('source') 
-            if tag.get('src', '').lower().endswith(('.mp3', '.wav', '.ogg'))
-        ]
+        # Поиск аудио-ссылок
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            audio_links = []
+            for source in soup.find_all('source', src=True):
+                if source['src']:
+                    audio_links.append(source['src'])
         
         if not audio_links:
             return {"status": "нет аудио"}
