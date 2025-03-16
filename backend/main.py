@@ -61,8 +61,8 @@ async def  analyze_excel_file(file: UploadFile = File(..., pattern=r".*\.xlsx$")
             else:
                 results.append("недействительная ссылка")
 
-        df = pd.read_excel(temp_file)
-        df["status"] = [res for res in results]
+        df = pd.read_excel(temp_file, header=3)
+        df["status"] = results
         output_file = f"result_{uuid.uuid4()}.xlsx"
         df.to_excel(output_file, index=False)
         

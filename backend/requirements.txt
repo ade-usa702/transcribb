@@ -14,4 +14,6 @@ datetime
 os
 uuid
 requests
-tempfile
+tempfil
+io
+openpyxl
