@@ -12,6 +12,11 @@ KEYWORDS = ["в архиве", "архивный", "впервые", "не бы�
             "больше года", "архив", "первичная консультация",
             "консультация", "не было", "первичное"]
 
+KEYWORDS_BRAK = ["перенести", "записана","записана сегодня","была сегодня","была вчера","неделю назад",
+                 "месяц назад","отменить","справку","справка","на прошлой неделе","у меня запись на прием",
+                 "я обслуживаюсь","там были сегодня","там была сегодня","перенести прием","опаздываю",
+                 "заболел","заболела","не смогу придти","перенесите запись","не приду"]
+
 
 # Загрузка модели
 model = WhisperModel("large", device="cpu", compute_type="int8")
@@ -24,12 +29,8 @@ def check_keywords(text):
     text_lower = text.lower()
     return any(keyword in text_lower for keyword in KEYWORDS)
 
-def w_keywords(text):
-    if not text:  # Проверка на пустой текст
-        return []
-    
-    text_lower = text.lower()
-    return [keyword for keyword in KEYWORDS if f" {keyword} " in f" {text_lower} "]
+def w_keywords(text: str) -> list[str]:  
+    return [keyword for keyword in KEYWORDS_BRAK if keyword in text.lower()]
 
 
 async def process_audio(url):
@@ -42,9 +43,11 @@ async def process_audio(url):
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
             audio_links = []
+            count_link = 0
             for source in soup.find_all('source', src=True):
                 if source['src']:
                     audio_links.append(source['src'])
+                    count_link += 1
         
         if not audio_links:
             return "нет аудио"
@@ -78,7 +81,7 @@ async def process_audio(url):
             status = "верно"
 
         details = f" ({w_keywords(text)})" if status == "верно" else ""
-        return f"{status}{details}"
+        return f"{status}; {count_link} аудиодорожки; {details}"
         
     except Exception as e:
         return f"ошибка: {str(e)}"
