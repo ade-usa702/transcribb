@@ -1,7 +1,6 @@
 import io
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
 from faster_whisper import WhisperModel
 from pydub import AudioSegment
 
@@ -19,7 +18,7 @@ KEYWORDS_BRAK = ["перенести", "записана","записана се
 
 
 # Загрузка модели
-model = WhisperModel("large", device="cuda", compute_type="int8")
+model = WhisperModel("large", device="cpu", compute_type="int8") #cuda float16
 
 
 def check_keywords(text):
@@ -33,7 +32,7 @@ def w_keywords(text: str) -> list[str]:
     return [keyword for keyword in KEYWORDS_BRAK if keyword in text.lower()]
 
 
-async def process_audio(url):
+def process_audio(url):
     """Обработка аудио с URL"""
     try:
         response = requests.get(url, timeout=10)

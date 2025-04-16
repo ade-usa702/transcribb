@@ -5,7 +5,7 @@ import tempfile
 import os
 
 # Укажите путь к вашей модели
-model = WhisperModel("large", device="cuda", compute_type="int8")
+model = WhisperModel("large", device="cpu", compute_type="int8") #cuda float16
 
 def format_time(seconds: float) -> str:
     """Форматирует время из секунд в формат HH:MM:SS.ms"""
@@ -20,7 +20,7 @@ def transcribe_audio(file_path):
 
     try: 
         """Транскрибирует аудиофайл и возвращает текст с временными метками"""
-        segments, info = model.transcribe(temp_path, language="ru")
+        segments, _ = model.transcribe(temp_path, language="ru")
         
         full_text = ""
         for segment in tqdm(segments, desc="Обработка аудио"):
@@ -39,7 +39,7 @@ def transcribe_audio(file_path):
         # Удаляем временный файл даже при ошибках
         os.remove(temp_path)
 
-def getTextFormat(audio_file_path):
+def get_text_format(audio_file_path):
 
     return transcribe_audio(audio_file_path)
 

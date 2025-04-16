@@ -14,7 +14,7 @@ datetime
 os
 uuid
 requests
-tempfil
+tempfile
 io
 openpyxl
 ctranslate2>=3.22.0
