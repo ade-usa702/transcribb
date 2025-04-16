@@ -19,7 +19,7 @@ KEYWORDS_BRAK = ["перенести", "записана","записана се
 
 
 # Загрузка модели
-model = WhisperModel("large", device="cpu", compute_type="int8")
+model = WhisperModel("large", device="cuda", compute_type="int8")
 
 
 def check_keywords(text):

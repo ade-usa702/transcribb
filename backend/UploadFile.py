@@ -5,7 +5,7 @@ import tempfile
 import os
 
 # Укажите путь к вашей модели
-model = WhisperModel("large", device="cpu", compute_type="int8")
+model = WhisperModel("large", device="cuda", compute_type="int8")
 
 def format_time(seconds: float) -> str:
     """Форматирует время из секунд в формат HH:MM:SS.ms"""

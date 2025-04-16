@@ -17,3 +17,4 @@ requests
 tempfil
 io
 openpyxl
+ctranslate2>=3.22.0
