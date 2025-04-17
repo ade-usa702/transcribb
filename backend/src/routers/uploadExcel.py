@@ -1,11 +1,11 @@
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, UploadFile, HTTPException, status
 from fastapi.responses import FileResponse
 import pandas as pd
 import re
-import os
+from werkzeug.http import parse_options_header
 from openpyxl import load_workbook
-from repositories.othercalls import process_audio
+from src.repositories.uploadExcel import process_audio
 
 router = APIRouter(prefix="/othercalls", tags=["othercalls"])
 
@@ -14,6 +14,11 @@ router = APIRouter(prefix="/othercalls", tags=["othercalls"])
 def  analyze_excel_file(file: UploadFile = File(...),
                               output_file: str = None): 
     
+    content_disposition = file.headers.get("content-disposition")
+    _, params = parse_options_header(content_disposition)
+    filename = params.get("filename", "unnamed_file")
+
+
     output_path = None
     try:
         if output_file:
@@ -45,7 +50,7 @@ def  analyze_excel_file(file: UploadFile = File(...),
             else:
                 results.append("недействительная ссылка")
 
-        df = pd.read_excel(file, header=2)
+        df = pd.read_excel(filename, header=2)
         df["status"] = results
 
         output_path = f"/{safe_file}"
@@ -57,11 +62,8 @@ def  analyze_excel_file(file: UploadFile = File(...),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     
-    finally:
-        if file and os.path.exists(file):
-            os.unlink(file)
-        if output_path and os.path.exists(output_path):
-            os.unlink(output_path)
-        for f in [file, output_file]:
-            if os.path.exists(f):
-                os.remove(f)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка обработки файла: {str(e)}"
+        )
