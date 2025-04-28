@@ -5,7 +5,7 @@ import pandas as pd
 import re
 from werkzeug.http import parse_options_header
 from openpyxl import load_workbook
-from src.repositories.uploadExcel import process_audio
+from repositories.uploadExcel import process_audio
 
 router = APIRouter(prefix="/othercalls", tags=["othercalls"])
 
@@ -32,13 +32,13 @@ def  analyze_excel_file(file: UploadFile = File(...),
             safe_file += '.xlsx'
 
         # Обработка файла
-        wb = load_workbook('./test.xlsx')
+        wb = load_workbook(filename)
         ws = wb.active
         
         # Собираем URL из гиперссылок начиная с 4-й строки
         urls = []
         
-        for row in ws.iter_rows(min_row=4, min_col=7, max_col=7):
+        for row in ws.iter_rows(min_row=4, min_col=12, max_col=12):
             cell = row[0]
             if cell.hyperlink:
                 urls.append(cell.hyperlink.target)  

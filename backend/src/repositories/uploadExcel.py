@@ -28,6 +28,9 @@ def check_keywords(text):
     text_lower = text.lower()
     return any(keyword in text_lower for keyword in KEYWORDS)
 
+def important_words(text):
+    return [keyword for keyword in KEYWORDS if keyword in text.lower()]
+
 def w_keywords(text: str) -> list[str]:  
     return [keyword for keyword in KEYWORDS_BRAK if keyword in text.lower()]
 
@@ -79,8 +82,12 @@ def process_audio(url):
         else:
             status = "верно"
 
-        details = f" ({w_keywords(text)})" if status == "верно" else ""
-        return f"{status}; {count_link} аудиодорожки; {details}"
+        if status == "требует проверки":
+            return f"{status}; {count_link} аудиодорожки; ({important_words(text)})"
+        elif status == "верно":
+            return f"{status}; {count_link} аудиодорожки; ({w_keywords(text)})"
+        else:
+            return f"{status}; {count_link} аудиодорожки"
         
     except Exception as e:
         return f"ошибка: {str(e)}"

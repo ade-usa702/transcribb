@@ -2,12 +2,10 @@ import pandas as pd
 from sqlalchemy import create_engine, types
 from sqlalchemy.dialects.postgresql import BIGINT, TIMESTAMP
 
-# Настройки подключения
-DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/seconddb"
+DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/maincalls"
 engine = create_engine(DATABASE_URL)
 
-def load_and_process_excel(file_path):
-
+def load_and_process_excel(file_list):
     selected_columns = [
         '№ \nзаявки',
         'Дата \nзаявки',
@@ -19,19 +17,35 @@ def load_and_process_excel(file_path):
         'Запись\n звонка',
         'Тип \nисточника'
     ]
-    # Чтение Excel-файла с обработкой пустых колонок
-    sheets = pd.read_excel(
-        file_path,
-        sheet_name=["3", "4"],
-        usecols=selected_columns  # Игнорируем технические колонки
-    )
+    
+    # Инициализация общего DataFrame перед циклом
+    combined_df = pd.DataFrame()
 
-    # Объединение данных из всех листов
-    combined_df = pd.concat(sheets.values(), ignore_index=True)
-    combined_df = combined_df[selected_columns]
-    combined_df = combined_df.dropna(how='all')  # Удаление полностью пустых строк
+    for file_path in file_list:
+        # Чтение файла
+        sheets = pd.read_excel(
+            file_path,
+            sheet_name=None,
+            usecols=lambda col: col in selected_columns  # Безопасная фильтрация колонок
+        )
+        
+        # Фильтрация листов
+        sheets = {
+            name: df 
+            for name, df in sheets.items() 
+            if name not in ['Звонки', 'Согл', 'Стом']
+        }
 
-    # Переименование колонок для SQL
+        # Объединение листов одного файла
+        file_df = pd.concat(sheets.values(), ignore_index=True)
+        
+        # Добавление в общий DataFrame
+        combined_df = pd.concat([combined_df, file_df], ignore_index=True)
+
+    # Единоразовая обработка после сбора всех данных
+    combined_df = combined_df[selected_columns].dropna(how='all')
+    
+    # Переименование колонок
     column_mapping = {
         '№ \nзаявки': 'request_id',
         'Дата \nзаявки': 'date',
@@ -45,71 +59,81 @@ def load_and_process_excel(file_path):
     }
     combined_df = combined_df.rename(columns=column_mapping)
 
-    # Преобразование данных
+    # Функция предобработки
     def preprocess_data(df):
-        # Обработка даты с разными форматами
-
+        # Конвертация даты
         df['date'] = pd.to_datetime(df['date'], dayfirst=True, errors='coerce')
         
         # Номер заявки
-        df['request_id'] = pd.to_numeric(
-            df['request_id'],
-            errors='coerce'
-        )
+        df['request_id'] = pd.to_numeric(df['request_id'], errors='coerce')
         
         # Телефон
         df['phone'] = (
             df['phone']
             .astype(str)
             .str.replace(r'[^0-9+]', '', regex=True)
-            .str.slice(0, 20)
+            .str.slice(0, 14)
         )
-        
-        # Текстовые поля
-        text_fields = {
-            'type_request': 20,
-            'comment_req': 200,
-            'service': 20,
-            'sources': 20,
-            'fio': 100, 
-            'links': 500
+
+        # Обработка текстовых полей
+        text_rules = {
+            'type_request': 10,
+            'service': 30,
+            'sources': 30,
+            'fio': 80,
+            'comment_req': 200
         }
         
-        for col, max_len in text_fields.items():
-            df[col] = df[col].astype(str).str.slice(0, max_len)
-        
-        
-        # Удаление полностью пустых строк
+        for col, max_len in text_rules.items():
+            df[col] = df[col].astype(str).str.strip().str[:max_len]        
         return df.dropna(how='all')
 
     return preprocess_data(combined_df)
 
-processed_df = None
+# Запуск обработки
 try:
-    processed_df = load_and_process_excel('2024_08-МЕД.xlsx')
-    print("Столбцы для загрузки:", processed_df.columns.tolist())
+    file_list = [
+        '2024_03-МЕД.xlsx',
+        '2024_04-МЕД.xlsx',
+        '2024_04-МЕД.xlsx',
+        '2024_05-МЕД.xlsx',
+        '2024_03-МЕД.xlsx',
+        '2024_06-МЕД.xlsx',
+        '2024_07-МЕД.xlsx',
+        '2024_08-МЕД.xlsx',
+        '2024_09-МЕД.xlsx',
+        '2024_10-МЕД.xlsx',
+        '2024_11-МЕД.xlsx',
+        '2024_12-МЕД.xlsx',
+        '2025_01-МЕД.xlsx',
+        '2025_02-МЕД.xlsx',
+        '2025_03-МЕД.xlsx'
+    ]
     
-    # Типы данных для SQLAlchemy
-    dtype = {
-        'date': TIMESTAMP(timezone=False),
-        'links': types.VARCHAR(20),
-        'phone': types.VARCHAR(20),
-        'service': types.VARCHAR(20)
-    }
+    processed_df = load_and_process_excel(file_list)
     
     # Загрузка в БД
+    dtype = {
+        'date': TIMESTAMP(timezone=False),
+        'links': types.VARCHAR(500),
+        'phone': types.VARCHAR(14),
+        'service': types.VARCHAR(30)
+    }
+    
+
     processed_df.to_sql(
-        name='requests',
+        name='maincall',
         con=engine,
         if_exists='append',
         index=False,
         dtype=dtype,
         method='multi'
     )
-    print(f"\nУспешно загружено {len(processed_df)} записей!")
+    
+    print(f"Успешно загружено {len(processed_df)} записей!")
 
 except Exception as e:
-    print(f"\nКритическая ошибка: {str(e)}")
-    if processed_df is not None:
-        print("Пример проблемной строки:")
-        print(processed_df.iloc[0].to_dict())
+    print(f"Ошибка: {str(e)}")
+    if 'processed_df' in locals():
+        print("Пример строки:", processed_df.iloc[0].to_dict())
+   

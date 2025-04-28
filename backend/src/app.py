@@ -2,8 +2,9 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.routers.uploadExcel import router as othercalls
+from routers.uploadExcel import router as othercalls
 from routers.uploadFile import router as uploadFile
+from routers.uploadMain import router as mainjob
 
 app = FastAPI()
 
@@ -17,6 +18,8 @@ app.add_middleware(
 
 app.include_router(othercalls, prefix="/api/v1")
 app.include_router(uploadFile, prefix="/api/v1")
+app.include_router(mainjob, prefix="/api/v1")
+
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

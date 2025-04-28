@@ -1,5 +1,5 @@
 from fastapi import APIRouter, File, UploadFile
-from src.repositories.uploadFile import get_text_format
+from repositories.uploadFile import get_text_format
 
 
 router = APIRouter(prefix="/uploadfile", tags=["uploadfile"])
