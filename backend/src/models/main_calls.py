@@ -1,14 +1,15 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Date, Time
 from database import Base
 
 
 
 class CallModel(Base):
-    __tablename__ = "requests"
+    __tablename__ = "maincall"
 
     request_id = Column(Integer, primary_key=True, index=False)
     type_request = Column(String, nullable=False)
-    date = Column(DateTime)
+    data = Column(Date)
+    time = Column(Time)
     phone = Column(String, nullable=False)
     comment_req = Column(String, nullable=False)
     service = Column(String, nullable=False)

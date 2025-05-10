@@ -1,6 +1,0 @@
-pandas 
-sqlalchemy
-datetime
-tabulate
-psycopg2
-openpyxl

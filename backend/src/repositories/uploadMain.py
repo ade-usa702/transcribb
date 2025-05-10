@@ -1,9 +1,29 @@
 # src/repositories/request.py
-from datetime import datetime, time
+from datetime import datetime, time, date
+from sqlalchemy import func
+import re
 from typing import Optional, Dict
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from models.main_calls import CallModel
+
+
+def normalize_phone(phone: str) -> str:
+    """Приводит телефон к формату 79118281562"""
+    # Удаляем все нецифровые символы
+    digits = re.sub(r'\D', '', phone)
+    
+    # Обработка разных форматов
+    if len(digits) == 11:
+        if digits.startswith('8'):
+            return '7' + digits[1:]
+        return digits
+    elif len(digits) == 10:
+        return '7' + digits
+    elif len(digits) < 10:
+        # Для коротких номеров добавим базовый код (настройте под ваши нужды)
+        return '7911' + digits[-7:]  # Пример для номеров типа 18281562
+    return digits  # Возвращаем как есть, если формат неизвестен
 
 # Pydantic модель для валидации параметров
 class RequestFilter(BaseModel):
@@ -11,8 +31,8 @@ class RequestFilter(BaseModel):
     fio: Optional[str] = None
     request_id: Optional[int] = None
     sources: Optional[str] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
     def get(self, key:str) -> bool:
         return getattr(self, key) is not None
@@ -22,10 +42,13 @@ class RequestRepository:
         self.db_session = db_session
 
     def apply_filters(self, filters: RequestFilter):
-        query = self.db_session.query(CallModel)
 
+        
+        query = self.db_session.query(CallModel)
         if filters.get('phone'):
-            query = query.filter(CallModel.phone == filters.phone)
+            normalized_phone = normalize_phone(filters.phone)
+            query = query.filter(CallModel.phone == normalized_phone)
+            
         if filters.get('fio'):
             query = query.filter(CallModel.fio == filters.fio)
         if filters.get('request_id'):
@@ -34,18 +57,12 @@ class RequestRepository:
             query = query.filter(CallModel.sources == filters.sources)
 
         if filters.get('start_date') or filters.get('end_date'):
-            # Приводим даты к началу и концу дня соответственно
-
-            if filters.get('start_date'):
-                # Начало дня (00:00:00)
-                start_date = datetime.combine(filters.start_date, time.min)
-                query = query.filter(CallModel.date >= start_date)
+            print(filters.start_date, filters.end_date)
+            if filters.start_date:
+                query = query.filter(CallModel.data >= filters.start_date)
             
-            if filters.get('end_date'):
-                # Конец дня (23:59:59.999999)
-                end_date = datetime.combine(filters.end_date.date(), time.max)
-                query = query.filter(CallModel.date <= end_date)
-
+            if filters.end_date:
+                query = query.filter(CallModel.data <= filters.end_date)
 
 
         return query.all()

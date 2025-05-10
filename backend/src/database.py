@@ -5,7 +5,7 @@ import os
 # Рекомендуется использовать переменные окружения
 DB_HOST = os.getenv('DB_HOST', 'localhost')
 DB_PORT = os.getenv('DB_PORT', '5432')  
-DB_NAME = os.getenv('DB_NAME', 'seconddb')  #calls_db
+DB_NAME = os.getenv('DB_NAME', 'maincalls')  
 DB_USER = os.getenv('DB_USER', 'postgres')
 DB_PASSWORD = os.getenv('DB_PASSWORD', 'postgres')
 
