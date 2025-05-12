@@ -1,8 +1,12 @@
+import asyncio
+import redis
 import io
+import json
 import requests
 from bs4 import BeautifulSoup
 from faster_whisper import WhisperModel
 from pydub import AudioSegment
+from sse_starlette.sse import EventSourceResponse
 
 
 
@@ -20,6 +24,7 @@ KEYWORDS_BRAK = ["перенести", "записана","записана се
 # Загрузка модели
 model = WhisperModel("large", device="cpu", compute_type="int8") #cuda float16
 
+cache = redis.Redis(host='localhost', port=5173, db=0) #6379
 
 def check_keywords(text):
     """Проверяет наличие ключевых слов в тексте"""
@@ -40,7 +45,8 @@ def process_audio(url):
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        
+        len_links = 0
+
         # Поиск аудио-ссылок
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -50,6 +56,7 @@ def process_audio(url):
                 if source['src']:
                     audio_links.append(source['src'])
                     count_link += 1
+                    
         
         if not audio_links:
             return "нет аудио"
@@ -75,6 +82,7 @@ def process_audio(url):
         
         # Определение статуса
         duration = len(audio) / 1000  # Продолжительность в секундах
+        len_links += int(duration)
         if duration < 50:
              status = "длительность менее 50 секунд"
         elif duration > 50 and check_keywords(text):
@@ -83,11 +91,20 @@ def process_audio(url):
             status = "верно"
 
         if status == "требует проверки":
-            return f"{status}; {count_link} аудиодорожки; ({important_words(text)})"
+            return f"{status}; {count_link} аудио; {len_links} сек; ({important_words(text)})"
         elif status == "верно":
-            return f"{status}; {count_link} аудиодорожки; ({w_keywords(text)})"
+            return f"{status}; {count_link} аудио; {len_links} сек; ({w_keywords(text)})"
         else:
-            return f"{status}; {count_link} аудиодорожки"
+            return f"{status}; {count_link} аудио; {len_links} сек"
         
     except Exception as e:
         return f"ошибка: {str(e)}"
+    
+
+async def status_stream(task_id: str):
+    while True:
+        data = cache.get(task_id)
+        yield json.dumps(data)
+        if data.get('status') == 'completed':
+            break
+        await asyncio.sleep(1)

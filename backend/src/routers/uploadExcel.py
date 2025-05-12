@@ -3,22 +3,20 @@ from fastapi import APIRouter, File, UploadFile, HTTPException, status
 from fastapi.responses import FileResponse
 import pandas as pd
 import re
+import tempfile
+import os
 from werkzeug.http import parse_options_header
 from openpyxl import load_workbook
-from repositories.uploadExcel import process_audio
+from repositories.uploadExcel import process_audio, EventSourceResponse, status_stream
 
 router = APIRouter(prefix="/othercalls", tags=["othercalls"])
 
 @router.post("",
              responses={400: {"description": "Bad request"}})
-def  analyze_excel_file(file: UploadFile = File(...),
+async def  analyze_excel_file(file: UploadFile = File(...),
                               output_file: str = None): 
-    
-    content_disposition = file.headers.get("content-disposition")
-    _, params = parse_options_header(content_disposition)
-    filename = params.get("filename", "unnamed_file")
 
-
+    temp_path = None
     output_path = None
     try:
         if output_file:
@@ -31,35 +29,40 @@ def  analyze_excel_file(file: UploadFile = File(...),
         if not safe_file.endswith('.xlsx'):
             safe_file += '.xlsx'
 
+        file_content = await file.read()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as temp_file:
+            temp_file.write(file_content)
+            temp_path = temp_file.name
         # Обработка файла
-        wb = load_workbook(filename)
+        wb = load_workbook(temp_path)
         ws = wb.active
         
-        # Собираем URL из гиперссылок начиная с 4-й строки
-        urls = []
-        
-        for row in ws.iter_rows(min_row=4, min_col=12, max_col=12):
+
+        ws.cell(row=3, column=13, value="Status") 
+
+
+        for row_idx, row in enumerate(ws.iter_rows(min_row=4, min_col=12, max_col=12), start=4):
             cell = row[0]
             if cell.hyperlink:
-                urls.append(cell.hyperlink.target)  
-    # Обработка аудио
-        results = []
-        for url in urls:  #tqdm создает прогресс-бар
-            if url and isinstance(url, str):
-                results.append(process_audio(url))
+                url = cell.hyperlink.target 
+                result = process_audio(url)
             else:
-                results.append("недействительная ссылка")
+                result = "недействительная ссылка"
+            
+            # Сохраняем результат в новый столбец
+            ws.cell(row=row_idx, column=13, value=result)
+        
 
-        df = pd.read_excel(filename, header=2)
-        df["status"] = results
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as output_path:
+            wb.save(output_path.name)
+            output_path = output_path.name
 
-        output_path = f"/{safe_file}"
-        df.to_excel(output_path, index=False)
+        wb.close()
         
         return FileResponse(
             output_path,
             filename=safe_file,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"  
         )
     
     except Exception as e:
@@ -67,3 +70,11 @@ def  analyze_excel_file(file: UploadFile = File(...),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка обработки файла: {str(e)}"
         )
+    finally:
+        # Clean up temporary files
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+
+@router.get("/stream/{task_id}")
+async def stream_status(task_id: str):
+    return EventSourceResponse(status_stream(task_id))
