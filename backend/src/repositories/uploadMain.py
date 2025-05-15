@@ -1,6 +1,6 @@
 # src/repositories/request.py
 from datetime import datetime, time, date
-from sqlalchemy import func
+from sqlalchemy import func, or_
 import re
 from typing import Optional, Dict
 from sqlalchemy.orm import Session
@@ -53,9 +53,67 @@ class RequestRepository:
             query = query.filter(CallModel.fio == filters.fio)
         if filters.get('request_id'):
             query = query.filter(CallModel.request_id == filters.request_id)
-        if filters.get('sources'):
-            query = query.filter(CallModel.sources == filters.sources)
 
+        if filters.get('sources'):
+            source = filters.sources.lower().strip()
+            
+            # Москва
+            if source in {"мск", "москва"}:
+                query = query.filter(
+                    or_(
+                        CallModel.sources.ilike("%мск%"),
+                        CallModel.sources.ilike("%москва%")
+                    )
+                )
+            
+            # Самара
+            elif source == "самара":
+                query = query.filter(
+                    CallModel.sources.ilike("%самара%")
+                )
+            
+            # Волгоград
+            elif source in {"волгоград", "влгд"}:
+                query = query.filter(
+                    or_(
+                        CallModel.sources.ilike("%влгд%"),
+                        CallModel.sources.ilike("%волгоград%")
+                    )
+                )
+            
+            # Санкт-Петербург
+            elif source in {"питер", "спб"}:
+                query = query.filter(
+                    or_(
+                        CallModel.sources.ilike("%питер%"),
+                        CallModel.sources.ilike("%спб%")
+                    )
+                )
+            
+            # Нижний Новгород
+            elif source in {"нн", "нижний", "новгород"}:
+                query = query.filter(
+                    or_(
+                        CallModel.sources.ilike("%нн%"),
+                        CallModel.sources.ilike("%нижний%"),
+                        CallModel.sources.ilike("%новгород%")
+                    )
+                )
+            
+            # Екатеринбург
+            elif source in {"екб", "екат", "екатеринбург"}:
+                query = query.filter(
+                    or_(
+                        CallModel.sources.ilike("%екб%"),
+                        CallModel.sources.ilike("%екат%"),  # Добавлено
+                        CallModel.sources.ilike("%екатеринбург%")
+                    )
+                )
+            else:
+                # Если источник не распознан, ищем точное совпадение
+                query = query.filter(CallModel.sources.ilike(f"%{source}%"))
+
+                print(query.all())
         if filters.get('start_date') or filters.get('end_date'):
             print(filters.start_date, filters.end_date)
             if filters.start_date:

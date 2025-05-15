@@ -22,7 +22,7 @@ KEYWORDS_BRAK = ["перенести", "записана","записана се
 
 
 # Загрузка модели
-model = WhisperModel("large", device="cpu", compute_type="int8") #cuda float16
+model = WhisperModel("large", device="cuda", compute_type="float16") #cuda float16
 
 cache = redis.Redis(host='localhost', port=5173, db=0) #6379
 
